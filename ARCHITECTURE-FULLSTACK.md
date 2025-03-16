@@ -1,4 +1,4 @@
-# AI Learning Platform Architecture
+# AI Learning Platform Full-Stack Architecture
 
 ## Project Overview
 
@@ -65,7 +65,6 @@ client/
 ├── public/             # Static files
 ├── src/
 │   ├── assets/         # Static assets like images, fonts, etc.
-│   ├── components/     # Reusable UI components
 │   │   ├── common/     # Shared across the application
 │   │   ├── dashboard/  # Dashboard-specific components
 │   │   ├── auth/       # Authentication components
@@ -261,6 +260,32 @@ The AI Teacher system is designed as a specialized service with several key comp
 - Database replication and backups
 - Automated scaling based on user load
 
+## Monorepo vs. Separate Repositories
+
+We recommend a **monorepo approach** for this project because:
+
+1. **Unified Development**: Easier coordination between frontend and backend changes
+2. **Shared Types**: TypeScript types can be shared between client and server
+3. **Simplified Dependency Management**: Consistent versions across the stack
+4. **Atomic Changes**: Ability to make cross-cutting changes in a single commit
+5. **Streamlined CI/CD**: Unified testing and deployment pipelines
+
+### Recommended Monorepo Structure
+
+```
+ai-learning-platform/
+├── client/            # Frontend application
+├── server/            # Backend application
+├── shared/            # Shared code and types
+├── scripts/           # Development and build scripts
+├── docker/            # Docker configuration
+├── docs/              # Documentation
+├── package.json       # Root package.json for dev dependencies and scripts
+└── README.md          # Project overview
+```
+
 ---
 
-This architecture supports the implementation of our advanced AI teaching system while maintaining modularity, scalability, and maintainability. The separation of concerns between client, API, and specialized services allows for independent development and optimization of each component. 
+This architecture supports the implementation of our advanced AI teaching system while maintaining modularity, scalability, and maintainability. The separation of concerns between client, API, and specialized services allows for independent development and optimization of each component.
+
+Transitioning to this full-stack approach will significantly enhance our ability to implement sophisticated AI teaching capabilities with personalized memory and adaptive learning strategies. 
