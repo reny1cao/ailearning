@@ -18,17 +18,17 @@ import {
 
 interface LearningHeaderProps {
   courseTitle: string;
-  showAIChat: boolean;
+  showAITeacherChat: boolean;
   showSidebar?: boolean;
-  setShowAIChat: (show: boolean) => void;
+  setShowAITeacherChat: (show: boolean) => void;
   toggleSidebar: () => void;
 }
 
 const LearningHeader: React.FC<LearningHeaderProps> = ({
   courseTitle,
-  showAIChat,
+  showAITeacherChat,
   showSidebar = false,
-  setShowAIChat,
+  setShowAITeacherChat,
   toggleSidebar,
 }) => {
   const navigate = useNavigate();
@@ -89,12 +89,12 @@ const LearningHeader: React.FC<LearningHeaderProps> = ({
 
           <button
             className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
-              showAIChat
+              showAITeacherChat
                 ? "bg-indigo-100 text-indigo-700"
                 : "text-gray-500 hover:text-indigo-600"
             }`}
-            onClick={() => setShowAIChat(!showAIChat)}
-            aria-label="Toggle AI assistant"
+            onClick={() => setShowAITeacherChat(!showAITeacherChat)}
+            aria-label="Toggle AI teacher"
           >
             <Bot className="w-5 h-5" />
           </button>

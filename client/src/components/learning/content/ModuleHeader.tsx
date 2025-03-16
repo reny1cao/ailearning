@@ -1,5 +1,12 @@
 import React from "react";
-import { Bot, PenTool, ChevronDown, Book, AlignLeft, Maximize2, Minimize2 } from "lucide-react";
+import {
+  PenTool,
+  ChevronDown,
+  Book,
+  AlignLeft,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 interface ModuleHeaderProps {
   title: string;
@@ -23,7 +30,9 @@ const ModuleHeader: React.FC<ModuleHeaderProps> = ({
       <div className="flex-1">
         <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mb-1">
           <Book className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Module {moduleIndex + 1} of {totalModules}</span>
+          <span>
+            Module {moduleIndex + 1} of {totalModules}
+          </span>
           <span className="text-gray-300 mx-0.5">•</span>
           <div className="flex items-center">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
@@ -47,7 +56,9 @@ const ModuleHeader: React.FC<ModuleHeaderProps> = ({
               <AlignLeft className="w-5 h-5" />
             </button>
             <div className="hidden group-hover:block absolute right-0 top-full mt-1 bg-white shadow-lg rounded-lg p-2 border border-gray-200 w-60 z-30">
-              <div className="text-sm font-medium text-gray-700 mb-2 px-2">Text Options</div>
+              <div className="text-sm font-medium text-gray-700 mb-2 px-2">
+                Text Options
+              </div>
               <div className="grid grid-cols-3 gap-1">
                 <button className="p-2 text-xs flex flex-col items-center justify-center rounded hover:bg-gray-100 transition-colors">
                   <Minimize2 className="w-4 h-4 mb-1" />
@@ -72,19 +83,6 @@ const ModuleHeader: React.FC<ModuleHeaderProps> = ({
           aria-label="Change font size"
         >
           <PenTool className="w-5 h-5" />
-        </button>
-
-        <button
-          onClick={() => setShowAIChat(!showAIChat)}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-            showAIChat
-              ? "bg-indigo-100 text-indigo-700"
-              : "bg-indigo-50 hover:bg-indigo-100 text-indigo-600"
-          }`}
-          aria-label="Toggle AI tutor"
-        >
-          <Bot className="w-4 h-4" />
-          <span className="hidden md:inline">AI Tutor</span>
         </button>
       </div>
     </div>

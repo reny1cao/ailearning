@@ -3,11 +3,21 @@
  */
 
 export interface TeachingContext {
-  contextId: string;
+  contextId?: string;
+  userId?: string;
+  sessionId?: string;
   courseId?: string;
   moduleId?: string;
+  userMessage?: string;
+  conceptsToTeach?: string[];
   goals?: string[];
   relevantConcepts?: string[];
+  previousMessages?: Message[];
+  userProfile?: {
+    learningStyle?: any;
+    knowledgeState?: KnowledgeState;
+  };
+  previousInteractions?: any[];
 }
 
 export interface UserProfile {
@@ -21,27 +31,34 @@ export interface UserProfile {
 }
 
 export interface KnowledgeState {
-  conceptMastery: Record<string, { confidenceLevel: number }>;
-  overallMastery: number;
-  currentConcepts: string[];
+  conceptMastery?: Record<string, { confidence: number, lastReviewed?: string }>;
+  overallMastery?: number;
+  currentConcepts?: string[];
+  recentInteractions?: any[];
 }
 
 export interface TeachingStrategy {
-  name: string;
-  description: string;
-  techniques: string[];
-  bestFor: string[];
-  examplePrompt: string;
+  name?: string;
+  approach?: string;
+  description?: string;
+  techniques?: string[];
+  bestFor?: string[];
+  adaptations?: string[];
+  rationale?: string;
+  confidenceLevel?: number;
+  examplePrompt?: string;
 }
 
 export interface TeachingResponse {
   content: string;
-  strategy: string;
-  conceptsCovered: string[];
-  suggestedNextConcepts: string[];
-  suggestedQuestions?: string[];
+  strategy?: string;
+  strategyUsed?: TeachingStrategy;
+  conceptsCovered?: string[];
+  relatedConcepts?: string[];
+  suggestedNextConcepts?: string[];
+  followupQuestions?: string[];
   interactionId?: string;
-  messageType: 'teaching' | 'error' | 'fallback';
+  messageType?: 'teaching' | 'error' | 'fallback';
 }
 
 export interface ConceptRelationship {

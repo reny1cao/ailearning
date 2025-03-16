@@ -7,157 +7,160 @@ import {
 } from '../../../shared/types';
 
 /**
- * In-memory database for the memory service.
- * Note: This is a temporary solution for development.
- * In production, this would be replaced with a real database.
+ * In-memory database for user memory management
+ * This would be replaced with a real database in production
  */
 class MemoryDatabase {
-  private userMemories: Map<string, UserMemory>;
-  
-  constructor() {
-    this.userMemories = new Map();
-    this.initializeMockData();
-  }
-  
+  private userMemories: Map<string, UserMemory> = new Map();
+  private learningProfiles: Map<string, UserLearningProfile> = new Map();
+  private interactions: Map<string, any[]> = new Map();
+  private feedbacks: Map<string, any[]> = new Map();
+  private interactionIdCounter: number = 0;
+
   /**
-   * Initialize mock data for development
-   */
-  private initializeMockData(): void {
-    // Create a mock user
-    const mockUserId = 'user-123';
-    const mockUserMemory: UserMemory = {
-      userId: mockUserId,
-      learningStyle: {
-        primary: 'visual',
-        secondary: 'kinesthetic'
-      },
-      preferences: {
-        detailLevel: 'medium',
-        exampleFrequency: 'high',
-        pace: 'moderate'
-      },
-      conceptMastery: {
-        'neural-networks': {
-          confidenceLevel: 0.7,
-          lastUpdated: new Date().toISOString()
-        },
-        'deep-learning': {
-          confidenceLevel: 0.5,
-          lastUpdated: new Date().toISOString()
-        },
-        'backpropagation': {
-          confidenceLevel: 0.3,
-          lastUpdated: new Date().toISOString()
-        }
-      },
-      interactionHistory: [
-        {
-          interactionId: 'interaction-1',
-          timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          userMessage: 'Can you explain neural networks?',
-          aiResponse: 'Neural networks are computing systems inspired by biological neural networks...',
-          concepts: ['neural-networks'],
-          contextId: 'context-1'
-        },
-        {
-          interactionId: 'interaction-2',
-          timestamp: new Date(Date.now() - 43200000).toISOString(), // 12 hours ago
-          userMessage: 'How does backpropagation work?',
-          aiResponse: 'Backpropagation is an algorithm used to train neural networks...',
-          concepts: ['backpropagation', 'neural-networks'],
-          contextId: 'context-1'
-        }
-      ]
-    };
-    
-    // Add mock user to database
-    this.userMemories.set(mockUserId, mockUserMemory);
-  }
-  
-  /**
-   * Get user memory by user ID
+   * Retrieves the memory state for a user
    */
   async getUserMemory(userId: string): Promise<UserMemory | null> {
     return this.userMemories.get(userId) || null;
   }
-  
+
   /**
-   * Create or update user learning profile
+   * Updates a user's learning profile
    */
   async updateUserLearningProfile(profile: UserLearningProfile): Promise<void> {
+    this.learningProfiles.set(profile.userId, profile);
+    
+    // Update the learning style in the user memory if it exists
     const memory = this.userMemories.get(profile.userId);
-    
     if (memory) {
-      // Update existing memory
       memory.learningStyle = profile.learningStyle;
-      memory.preferences = profile.preferences || memory.preferences;
+      this.userMemories.set(profile.userId, memory);
     } else {
-      // Create new user memory
-      this.userMemories.set(profile.userId, {
-        userId: profile.userId,
-        learningStyle: profile.learningStyle,
-        preferences: profile.preferences || {},
+      // Create a new memory if it doesn't exist
+      const newMemory: UserMemory = {
         conceptMastery: {},
+        learningStyle: profile.learningStyle,
         interactionHistory: []
+      };
+      this.userMemories.set(profile.userId, newMemory);
+    }
+  }
+
+  /**
+   * Updates the mastery level for a specific concept
+   */
+  async updateConceptMastery(conceptInfo: {
+    userId: string;
+    concept: string;
+    confidence: number;
+    lastUpdated: string;
+  }): Promise<void> {
+    const { userId, concept, confidence, lastUpdated } = conceptInfo;
+    
+    // Get the user's memory
+    let memory = this.userMemories.get(userId);
+    
+    // Create memory if it doesn't exist
+    if (!memory) {
+      memory = {
+        conceptMastery: {},
+        learningStyle: {
+          preferredExamples: [],
+          comprehensionSpeed: 3,
+          visualLearner: false,
+          technicalLevel: 3,
+          preferredFormat: 'text'
+        },
+        interactionHistory: []
+      };
+    }
+    
+    // Update the concept mastery
+    memory.conceptMastery[concept] = {
+      confidence,
+      lastReviewed: lastUpdated
+    };
+    
+    // Save the updated memory
+    this.userMemories.set(userId, memory);
+  }
+
+  /**
+   * Gets the mastery information for a specific concept
+   */
+  async getConceptMastery(userId: string, concept: string): Promise<any | null> {
+    const memory = this.userMemories.get(userId);
+    if (!memory || !memory.conceptMastery) {
+      return null;
+    }
+    
+    const masteryInfo = memory.conceptMastery[concept];
+    if (!masteryInfo) {
+      return null;
+    }
+    
+    // Convert the internal format to the format expected by the calling code
+    return {
+      confidenceLevel: masteryInfo.confidence,
+      lastUpdated: masteryInfo.lastReviewed,
+      exposureCount: masteryInfo.reviewCount || 0,
+      concept
+    };
+  }
+
+  /**
+   * Records a new interaction between the user and the AI
+   */
+  async recordInteraction(interaction: {
+    userId: string;
+    userMessage: string;
+    aiResponse: string;
+    concepts: string[];
+    timestamp: string;
+    contextId: string;
+  }): Promise<string> {
+    const { userId } = interaction;
+    
+    // Generate an interaction ID
+    const interactionId = `interaction_${++this.interactionIdCounter}`;
+    
+    // Get or create the user's interactions array
+    const userInteractions = this.interactions.get(userId) || [];
+    
+    // Add the new interaction
+    userInteractions.push({
+      id: interactionId,
+      ...interaction
+    });
+    
+    // Save the updated interactions
+    this.interactions.set(userId, userInteractions);
+    
+    // Update the user's memory to include the interaction in their history
+    const memory = this.userMemories.get(userId);
+    if (memory) {
+      // Only keep the last 20 interactions in memory
+      const currentTime = new Date(interaction.timestamp);
+      memory.interactionHistory.push({
+        question: interaction.userMessage,
+        answer: interaction.aiResponse,
+        concepts: interaction.concepts,
+        timestamp: currentTime
       });
+      
+      // Limit the history size
+      if (memory.interactionHistory.length > 20) {
+        memory.interactionHistory = memory.interactionHistory.slice(-20);
+      }
+      
+      this.userMemories.set(userId, memory);
     }
-  }
-  
-  /**
-   * Update concept mastery for a user
-   */
-  async updateConceptMastery(conceptInfo: ConceptMasteryInfo): Promise<void> {
-    const memory = this.userMemories.get(conceptInfo.userId);
-    
-    if (!memory) {
-      throw new Error(`User memory not found for userId: ${conceptInfo.userId}`);
-    }
-    
-    if (!memory.conceptMastery) {
-      memory.conceptMastery = {};
-    }
-    
-    memory.conceptMastery[conceptInfo.concept] = {
-      confidenceLevel: conceptInfo.confidenceLevel,
-      lastUpdated: conceptInfo.lastUpdated
-    };
-  }
-  
-  /**
-   * Record a new interaction between the user and the AI
-   */
-  async recordInteraction(interaction: LearningInteraction): Promise<string> {
-    const memory = this.userMemories.get(interaction.userId);
-    
-    if (!memory) {
-      throw new Error(`User memory not found for userId: ${interaction.userId}`);
-    }
-    
-    if (!memory.interactionHistory) {
-      memory.interactionHistory = [];
-    }
-    
-    // Generate a unique interaction ID
-    const interactionId = `interaction-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    
-    // Create interaction record
-    const interactionRecord: InteractionHistory = {
-      interactionId,
-      timestamp: interaction.timestamp,
-      userMessage: interaction.userMessage,
-      aiResponse: interaction.aiResponse,
-      concepts: interaction.concepts,
-      contextId: interaction.contextId
-    };
-    
-    // Add to history
-    memory.interactionHistory.push(interactionRecord);
     
     return interactionId;
   }
-  
+
   /**
-   * Record feedback for AI effectiveness
+   * Records feedback for a specific AI response
    */
   async recordEffectivenessFeedback(feedback: {
     userId: string;
@@ -166,61 +169,40 @@ class MemoryDatabase {
     comment?: string;
     timestamp: string;
   }): Promise<void> {
-    const memory = this.userMemories.get(feedback.userId);
+    const { userId, interactionId } = feedback;
     
-    if (!memory) {
-      throw new Error(`User memory not found for userId: ${feedback.userId}`);
-    }
+    // Get the user's feedbacks
+    const userFeedbacks = this.feedbacks.get(userId) || [];
     
-    // Find the interaction
-    const interaction = memory.interactionHistory?.find(
-      i => i.interactionId === feedback.interactionId
-    );
+    // Add the new feedback
+    userFeedbacks.push(feedback);
     
-    if (!interaction) {
-      throw new Error(`Interaction not found: ${feedback.interactionId}`);
-    }
-    
-    // Add feedback to the interaction
-    interaction.feedback = {
-      rating: feedback.rating,
-      comment: feedback.comment,
-      timestamp: feedback.timestamp
-    };
+    // Save the updated feedbacks
+    this.feedbacks.set(userId, userFeedbacks);
   }
-  
+
   /**
-   * Get relevant interactions based on concepts or content similarity
+   * Retrieves similar past interactions based on concepts
+   * In a real implementation, this would use vector similarity search
    */
   async getRelevantInteractions(
     userId: string,
     concepts: string[],
     limit: number = 5
-  ): Promise<InteractionHistory[]> {
-    const memory = this.userMemories.get(userId);
+  ): Promise<any[]> {
+    // Get the user's interactions
+    const userInteractions = this.interactions.get(userId) || [];
     
-    if (!memory || !memory.interactionHistory) {
-      return [];
-    }
-    
-    // Filter interactions that contain any of the specified concepts
-    const relevantInteractions = memory.interactionHistory.filter(interaction => {
-      if (!interaction.concepts) return false;
-      
-      return interaction.concepts.some(concept => 
-        concepts.includes(concept)
-      );
+    // Filter interactions that contain at least one of the specified concepts
+    // In a real implementation, this would use embedding similarity
+    const relevantInteractions = userInteractions.filter(interaction => {
+      return interaction.concepts.some(concept => concepts.includes(concept));
     });
     
-    // Sort by recency (newest first)
-    relevantInteractions.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    
-    // Return the most recent relevant interactions
-    return relevantInteractions.slice(0, limit);
+    // Return the most recent relevant interactions up to the limit
+    return relevantInteractions.slice(-limit);
   }
 }
 
-// Export singleton instance
+// Create and export a singleton instance
 export const memoryDb = new MemoryDatabase(); 

@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/authStore";
-import { Course } from "../types/database";
+import { Course, Module, Unit } from "../types/database";
 import { useModuleNavigation } from "../hooks/useModuleNavigation";
 import {
   BookOpen,
@@ -38,6 +38,7 @@ import TextSelection from "../components/learning/TextSelection";
 import AIResponse from "../components/learning/AIResponse";
 import { visibilityManager } from "../lib/visibilityManager";
 import { usePageLifecycle } from "../hooks/usePageLifecycle";
+import logger from "../lib/logger";
 
 // Layout components
 import LearningHeader from "../components/learning/layout/LearningHeader";
@@ -49,7 +50,7 @@ import ModuleHeader from "../components/learning/content/ModuleHeader";
 import ModuleContentView from "../components/learning/content/ModuleContentView";
 
 // AI components
-import AIChat from "../components/learning/ai/AIChat";
+import { AITeacherIntegration } from "../components/learning/ai";
 
 // Type definitions for notes
 interface Note {
@@ -69,6 +70,29 @@ interface NavigationItem {
   isCurrent: boolean;
 }
 
+// Module selector component for when no module is selected
+const ModuleSelector = ({
+  onSelectModule,
+}: {
+  onSelectModule: (moduleId: string) => void;
+}) => {
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] py-20">
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <BookOpen className="w-8 h-8 text-indigo-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Select a module to begin
+        </h2>
+        <p className="text-gray-600 mb-8">
+          Choose from the modules in the sidebar to start your learning journey
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const Learn = () => {
   const { courseId, moduleId } = useParams();
   const navigate = useNavigate();
@@ -78,7 +102,7 @@ const Learn = () => {
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showAIChat, setShowAIChat] = useState(false);
+  const [showAITeacherChat, setShowAITeacherChat] = useState(true);
   const [fontSize, setFontSize] = useState<"small" | "medium" | "large">(
     "medium"
   );
@@ -162,7 +186,7 @@ const Learn = () => {
   }, []);
 
   // Toggle sidebar with memory of user preference
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     console.log("Toggle sidebar called, current state:", showSidebar);
     const newState = !showSidebar;
     setShowSidebar(newState);
@@ -181,7 +205,7 @@ const Learn = () => {
     if (newState && window.innerWidth < 768) {
       setMobileActiveTab("modules");
     }
-  };
+  }, [showSidebar, setMobileActiveTab]);
 
   // Mobile navigation handling
   useEffect(() => {
@@ -189,11 +213,11 @@ const Learn = () => {
     if (mobileActiveTab === "modules") {
       setShowSidebar(true);
     } else if (mobileActiveTab === "ai") {
-      setShowAIChat(true);
+      setShowAITeacherChat(true);
     } else {
       setShowSidebar(false);
       if (mobileActiveTab !== "ai") {
-        setShowAIChat(false);
+        setShowAITeacherChat(false);
       }
     }
   }, [mobileActiveTab]);
@@ -236,19 +260,36 @@ const Learn = () => {
         setCourse(courseData);
 
         // Fetch notes for this course
-        const { data: notesData } = await supabase
-          .from("user_notes")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("course_id", courseId);
+        try {
+          const { data: notesData, error } = await supabase
+            .from("user_notes")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("course_id", courseId);
 
-        if (notesData) {
-          setNotes(
-            notesData.map((note) => ({
-              ...note,
-              timestamp: new Date(note.created_at),
-            }))
-          );
+          if (error) {
+            console.log("Error fetching notes:", error);
+            // Check if the error is due to missing table
+            if (error.code === "42P01") {
+              // PostgreSQL code for undefined table
+              console.log(
+                "Notes table doesn't exist yet. Please apply the database migration."
+              );
+              setNotes([]);
+            } else {
+              console.error("Unexpected error fetching notes:", error);
+            }
+          } else if (notesData) {
+            setNotes(
+              notesData.map((note) => ({
+                ...note,
+                timestamp: new Date(note.created_at),
+              }))
+            );
+          }
+        } catch (error) {
+          console.error("Exception when fetching notes:", error);
+          setNotes([]);
         }
       } catch (error) {
         console.error("Error fetching course data:", error);
@@ -420,6 +461,46 @@ const Learn = () => {
     }
   };
 
+  // Close the AI chat when navigating to a new module
+  useEffect(() => {
+    if (moduleId) {
+      // Show AI chat on module change for better learning experience
+      setShowAITeacherChat(true);
+    }
+  }, [moduleId]);
+
+  // Handle tab changes with AI teacher chat toggles
+  const handleTabChange = useCallback(
+    (tab: "content" | "modules" | "ai" | "notes") => {
+      setMobileActiveTab(tab);
+
+      // Show AI teacher chat when AI tab is selected
+      if (tab === "ai") {
+        logger.debug("Opening AI teacher from tab change");
+        setShowAITeacherChat(true);
+      } else if (showAITeacherChat) {
+        // Close AI chat when switching to another tab
+        logger.debug("Closing AI teacher from tab change");
+        setShowAITeacherChat(false);
+      }
+    },
+    [showAITeacherChat]
+  );
+
+  // Toggle AI Teacher Chat
+  const toggleAITeacherChat = useCallback(() => {
+    logger.debug(
+      `${showAITeacherChat ? "Closing" : "Opening"} AI teacher chat`
+    );
+
+    // When opening AI chat on mobile, also set the active tab to "ai"
+    if (!showAITeacherChat && window.innerWidth < 768) {
+      setMobileActiveTab("ai");
+    }
+
+    setShowAITeacherChat((prev) => !prev);
+  }, [showAITeacherChat]);
+
   if (loading || moduleLoading || !course || !currentModule) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-r from-indigo-50 to-blue-50">
@@ -497,90 +578,82 @@ const Learn = () => {
   });
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
-      {/* Global Header */}
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900">
+      {/* Header bar */}
       <LearningHeader
-        courseTitle={course.title}
-        showAIChat={showAIChat}
+        courseTitle={course?.title || "Learning"}
+        showAITeacherChat={showAITeacherChat}
         showSidebar={showSidebar}
-        setShowAIChat={setShowAIChat}
+        setShowAITeacherChat={toggleAITeacherChat}
         toggleSidebar={toggleSidebar}
       />
 
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Course Navigation Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar - hidden on mobile */}
         <ModulesSidebar
-          courseTitle={course.title}
-          modules={moduleNavItems}
-          overallProgress={overallProgress}
-          showSidebar={showSidebar}
+          modules={modules}
+          currentModuleId={moduleId}
+          courseId={courseId}
+          progress={progress}
           onModuleSelect={handleModuleSelect}
+          showSidebar={showSidebar}
           toggleSidebar={toggleSidebar}
         />
 
-        {/* Sidebar toggle button - positioned at the edge of main content */}
-        <button
-          onClick={toggleSidebar}
-          className={`absolute top-4 ${
-            showSidebar ? "left-64" : "left-0"
-          } z-50 bg-white border border-gray-200 rounded-r-md p-2 shadow-sm hover:bg-gray-50 transition-all duration-300 hidden md:flex`}
-          aria-label={showSidebar ? "Collapse sidebar" : "Expand sidebar"}
-        >
-          {showSidebar ? (
-            <ChevronLeft className="w-4 h-4 text-gray-600" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-gray-600" />
-          )}
-        </button>
-
-        <main
-          className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
-            showSidebar ? "md:ml-64 xl:ml-64" : "md:ml-10 xl:ml-0"
-          }`}
-        >
-          {/* Module Header */}
-          <ModuleHeader
-            title={currentModule.title}
-            moduleIndex={currentModuleIndex}
-            totalModules={modules.length}
-            showAIChat={showAIChat}
-            setShowAIChat={setShowAIChat}
-            onFontSizeChange={handleFontSizeChange}
-          />
-
-          {/* Content and AI Assistant Area */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* Main Content Area */}
-            <div
-              ref={contentContainerRef}
-              className={`flex-1 overflow-y-auto transition-all duration-300 ${
-                showAIChat ? "md:pr-[400px]" : ""
-              }`}
-            >
-              <ModuleContentView
-                content={currentModule.content}
-                fontSizeClass={getFontSizeClass()}
-                isTransitioning={isTransitioning}
-                notes={moduleNotes}
-                isCurrentModuleComplete={isModuleComplete}
-                currentModuleIndex={currentModuleIndex}
-                totalModules={modules.length}
-                onPrevious={handlePreviousModule}
-                onNext={handleNextModule}
-                onComplete={markComplete}
-                onTextSelection={handleTextSelection}
-              />
-            </div>
-
-            {/* AI Assistant Panel */}
-            <AIChat
-              isVisible={showAIChat}
-              onClose={() => setShowAIChat(false)}
-              currentModuleContent={currentModule?.content}
-              currentModuleTitle={currentModule?.title}
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div
+            ref={contentContainerRef}
+            className={`flex-1 overflow-auto pb-20 md:pb-8 px-4 md:px-8 transition-all ${getFontSizeClass()}`}
+          >
+            {/* Module Header */}
+            <ModuleHeader
+              title={currentModule.title}
+              moduleIndex={currentModuleIndex}
+              totalModules={modules.length}
+              showAIChat={showAITeacherChat}
+              setShowAIChat={toggleAITeacherChat}
+              onFontSizeChange={handleFontSizeChange}
             />
+
+            {/* Content and AI Assistant Area */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Main Content Area */}
+              <div
+                ref={contentRef}
+                className="flex-1 overflow-y-auto transition-all duration-300"
+              >
+                {!currentModule ? (
+                  <ModuleSelector onSelectModule={handleModuleSelect} />
+                ) : (
+                  <ModuleContentView
+                    content={currentModule.content}
+                    fontSizeClass={getFontSizeClass()}
+                    isTransitioning={isTransitioning}
+                    notes={moduleNotes}
+                    isCurrentModuleComplete={isModuleComplete}
+                    currentModuleIndex={currentModuleIndex}
+                    totalModules={modules.length}
+                    onPrevious={handlePreviousModule}
+                    onNext={handleNextModule}
+                    onComplete={markComplete}
+                    onTextSelection={handleTextSelection}
+                  />
+                )}
+              </div>
+
+              {/* AI Assistant Panel */}
+              {currentModule && showAITeacherChat && (
+                <AITeacherIntegration
+                  moduleContent={currentModule?.content || ""}
+                  moduleTitle={currentModule?.title || ""}
+                  currentTopic={currentModule?.title || ""}
+                  mode="companion"
+                />
+              )}
+            </div>
           </div>
-        </main>
+        </div>
       </div>
 
       {/* Selection Tools */}
@@ -603,11 +676,11 @@ const Learn = () => {
         />
       )}
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile navigation */}
       <MobileNavigation
         activeTab={mobileActiveTab}
-        onTabChange={setMobileActiveTab}
-        showAIChat={showAIChat}
+        onTabChange={handleTabChange}
+        showAITeacherChat={showAITeacherChat}
       />
     </div>
   );

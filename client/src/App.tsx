@@ -1,5 +1,11 @@
 import React, { useEffect, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/authStore";
 import { visibilityManager } from "./lib/visibilityManager";
@@ -11,6 +17,7 @@ import CourseDetail from "./pages/CourseDetail";
 import Learn from "./pages/Learn";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import AICompanionDemo from "./components/learning/ai/AICompanionDemo";
 
 // RouterFix component to apply fixes when the router is available
 const RouterFix = () => {
@@ -29,12 +36,14 @@ const RouterFix = () => {
       replace: (newLocation) => {
         // Use navigate to replace the current location
         navigate(
-          typeof newLocation === 'string' 
+          typeof newLocation === "string"
             ? newLocation 
-            : newLocation.pathname + (newLocation.search || '') + (newLocation.hash || ''),
+            : newLocation.pathname +
+                (newLocation.search || "") +
+                (newLocation.hash || ""),
           { replace: true }
         );
-      }
+      },
     };
     
     // Apply router fixes
@@ -71,7 +80,7 @@ function App() {
 
     // Handle auth refreshing with visibility manager
     visibilityUnregisterRef.current = visibilityManager.register(
-      'app-auth-refresh',
+      "app-auth-refresh",
       (isVisible) => {
         if (isVisible) {
           const now = Date.now();
@@ -122,6 +131,7 @@ function App() {
           <Route path="/learn/:courseId/module/:moduleId" element={<Learn />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/ai-companion-demo" element={<AICompanionDemo />} />
         </Routes>
       </div>
     </Router>

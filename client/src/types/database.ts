@@ -1,3 +1,24 @@
+/**
+ * Database types for the learning application
+ */
+
+/**
+ * Module type representing a learning module
+ */
+export interface Module {
+  id: string;
+  title: string;
+  description?: string;
+  content?: string;
+  order?: number;
+  course_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Course type representing a learning course
+ */
 export interface Course {
   id: string;
   title: string;
@@ -29,23 +50,33 @@ export interface Course {
   last_updated: string;
 }
 
-export interface Module {
-  id: string;
+/**
+ * User progress type
+ */
+export interface Progress {
+  id?: string;
+  user_id: string;
   course_id: string;
-  title: string;
-  description: string;
-  order_number: number;
+  module_id: string;
+  completed: boolean;
+  completed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Note type for user notes
+ */
+export interface Note {
+  id?: string;
+  user_id: string;
+  course_id: string;
+  module_id: string;
   content: string;
-  duration_minutes: number;
-  created_at: string;
-  status: 'draft' | 'published' | 'archived';
-  estimated_time?: number;
-  user_progress?: {
-    id: string;
-    user_id: string;
-    completed: boolean;
-    updated_at: string;
-  }[];
+  type: "note" | "highlight" | "bookmark";
+  selection?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface UserProgress {
